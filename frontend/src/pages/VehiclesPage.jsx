@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Truck, Plus, Search, X, CheckCircle, Clock, DollarSign, ChevronRight } from 'lucide-react';
+import { Truck, Plus, Search, X, CheckCircle, Clock, DollarSign, ChevronRight, Pencil } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 
@@ -198,6 +198,7 @@ export default function VehiclesPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState(null);
   const [detailPlate, setDetailPlate] = useState(null);
 
   const load = useCallback(async () => {
@@ -275,7 +276,21 @@ export default function VehiclesPage() {
                   <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{v.owner_phone || '—'}</td>
                   <td style={{ fontSize: 12, color: 'var(--text-subtle)' }}>{new Date(v.created_at).toLocaleDateString('pt-BR')}</td>
                   <td>
-                    <ChevronRight size={15} style={{ color: 'var(--text-subtle)' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingVehicle(v);
+                          setShowModal(true);
+                        }}
+                        title="Adicionar/alterar informações"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <ChevronRight size={15} style={{ color: 'var(--text-subtle)' }} />
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -296,7 +311,11 @@ export default function VehiclesPage() {
       </div>
 
       {showModal && (
-        <VehicleModal onClose={() => setShowModal(false)} onSave={() => { setShowModal(false); load(); }} />
+        <VehicleModal
+          vehicle={editingVehicle}
+          onClose={() => { setShowModal(false); setEditingVehicle(null); }}
+          onSave={() => { setShowModal(false); setEditingVehicle(null); load(); }}
+        />
       )}
       {detailPlate && (
         <VehicleDetail plate={detailPlate} onClose={() => setDetailPlate(null)} />

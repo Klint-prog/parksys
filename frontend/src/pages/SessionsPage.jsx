@@ -16,7 +16,7 @@ const PAYMENT_METHODS = [
 ];
 
 function EntryModal({ spots, plans, onClose, onSuccess }) {
-  const [form, setForm] = useState({ plate:'', spot_id:'', pricing_plan_id:'', notes:'' });
+  const [form, setForm] = useState({ plate:'', owner_name:'', owner_phone:'', vehicle_type:'car', spot_id:'', pricing_plan_id:'', notes:'' });
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async e => {
@@ -43,6 +43,25 @@ function EntryModal({ spots, plans, onClose, onSuccess }) {
             <div className="form-group">
               <label className="form-label">Placa do Veículo *</label>
               <input value={form.plate} onChange={e=>setForm(f=>({...f,plate:e.target.value.toUpperCase()}))} placeholder="ABC-1234" required maxLength={8} style={{ textTransform:'uppercase', letterSpacing:'0.1em', fontWeight:600, fontSize:16 }} />
+            </div>
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Nome do Cliente</label>
+                <input value={form.owner_name} onChange={e=>setForm(f=>({...f,owner_name:e.target.value}))} placeholder="Nome do cliente" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Telefone</label>
+                <input value={form.owner_phone} onChange={e=>setForm(f=>({...f,owner_phone:e.target.value}))} placeholder="(00) 00000-0000" />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Tipo de Veículo</label>
+              <select value={form.vehicle_type} onChange={e=>setForm(f=>({...f,vehicle_type:e.target.value}))}>
+                <option value="car">🚗 Carro</option>
+                <option value="motorcycle">🏍️ Moto</option>
+                <option value="truck">🚛 Caminhão</option>
+                <option value="van">🚐 Van</option>
+              </select>
             </div>
             <div className="grid-2">
               <div className="form-group">
