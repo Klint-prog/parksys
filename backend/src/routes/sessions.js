@@ -91,7 +91,7 @@ router.post('/entry', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    const { plate, spot_id, pricing_plan_id, notes } = req.body;
+    const { plate, spot_id, pricing_plan_id, notes, owner_name, owner_phone, vehicle_type } = req.body;
 
     if (!plate || !spot_id || !pricing_plan_id) {
       return res.status(400).json({ error: 'Placa, vaga e plano são obrigatórios' });
@@ -128,10 +128,18 @@ router.post('/entry', async (req, res) => {
 
     if (vehicleResult.rows.length > 0) {
       vehicleId = vehicleResult.rows[0].id;
+      await client.query(
+        `UPDATE vehicles
+         SET owner_name = COALESCE($1, owner_name),
+             owner_phone = COALESCE($2, owner_phone),
+             vehicle_type = COALESCE($3, vehicle_type)
+         WHERE id = $4`,
+        [owner_name || null, owner_phone || null, vehicle_type || null, vehicleId]
+      );
     } else {
       const newVehicle = await client.query(
-        'INSERT INTO vehicles (plate) VALUES ($1) RETURNING id',
-        [plate.toUpperCase()]
+        'INSERT INTO vehicles (plate, owner_name, owner_phone, vehicle_type) VALUES ($1, $2, $3, $4) RETURNING id',
+        [plate.toUpperCase(), owner_name || null, owner_phone || null, vehicle_type || 'car']
       );
       vehicleId = newVehicle.rows[0].id;
     }
