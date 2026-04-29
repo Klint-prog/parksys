@@ -3,6 +3,7 @@ import { Car, RefreshCw, MapPin, Clock, Zap, Accessibility } from 'lucide-react'
 import api from '../utils/api';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import toast from 'react-hot-toast';
 
 const SPOT_COLORS = {
   available: { bg:'rgba(34,197,94,0.12)', border:'rgba(34,197,94,0.3)', dot:'var(--success)', label:'Livre' },
@@ -18,11 +19,11 @@ function SpotCard({ spot, onClick }) {
   const elapsed = spot.entry_time ? Math.floor((Date.now() - new Date(spot.entry_time)) / 60000) : 0;
 
   return (
-    <div onClick={() => spot.status !== 'available' && onClick(spot)}
+    <div onClick={() => onClick(spot)}
       style={{
         padding:'10px 8px', borderRadius:8,
         background: colors.bg, border: `1px solid ${colors.border}`,
-        cursor: spot.status !== 'available' ? 'pointer' : 'default',
+        cursor: 'pointer',
         transition:'all 0.15s', textAlign:'center', minWidth:72, position:'relative',
       }}
       onMouseEnter={e=>e.currentTarget.style.transform='scale(1.05)'}
@@ -41,6 +42,134 @@ function SpotCard({ spot, onClick }) {
       ) : (
         <div style={{ fontSize:10, color:colors.dot }}>{colors.label}</div>
       )}
+    </div>
+  );
+}
+
+function SpotEntryModal({ spot, onClose, onSuccess }) {
+  const [plans, setPlans] = useState([]);
+  const [search, setSearch] = useState('');
+  const [vehicles, setVehicles] = useState([]);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [form, setForm] = useState({ plate: '', owner_name: '', owner_phone: '', vehicle_type: 'car', pricing_plan_id: '', notes: '' });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api.get('/pricing-plans').then(r => setPlans(r.data || [])).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      if (!search.trim()) return setVehicles([]);
+      try {
+        const res = await api.get('/vehicles', { params: { search, page: 1, limit: 8 } });
+        setVehicles(res.data.vehicles || []);
+      } catch {
+        setVehicles([]);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const selectVehicle = (v) => {
+    setSelectedVehicle(v);
+    setForm(f => ({
+      ...f,
+      plate: v.plate || '',
+      owner_name: v.owner_name || '',
+      owner_phone: v.owner_phone || '',
+      vehicle_type: v.vehicle_type || 'car',
+    }));
+  };
+
+  const handleSubmit = async () => {
+    if (!form.plate || !form.pricing_plan_id) return toast.error('Informe placa e plano');
+    setSaving(true);
+    try {
+      await api.post('/sessions/entry', {
+        ...form,
+        plate: form.plate.toUpperCase(),
+        spot_id: spot.id
+      });
+      toast.success('Entrada registrada com sucesso!');
+      onSuccess();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao registrar entrada');
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ width: 'min(680px, 95vw)' }}>
+        <div className="modal-header">
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 600 }}>Registrar Entrada · Vaga {spot.floor}{spot.spot_number}</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Selecione um veículo cadastrado ou preencha os dados</p>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: 6 }}>✕</button>
+        </div>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="form-group">
+            <label className="form-label">Procurar veículo cadastrado</label>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Placa, nome ou telefone..." />
+            {vehicles.length > 0 && (
+              <div style={{ marginTop: 8, border: '1px solid var(--border)', borderRadius: 8, maxHeight: 180, overflowY: 'auto' }}>
+                {vehicles.map(v => (
+                  <button key={v.id} type="button" className="btn btn-ghost" onClick={() => selectVehicle(v)}
+                    style={{ width: '100%', justifyContent: 'space-between', borderRadius: 0, borderBottom: '1px solid var(--border)', padding: '10px 12px' }}>
+                    <span style={{ fontWeight: 600 }}>{v.plate}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{v.owner_name || 'Sem nome'}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {selectedVehicle && <div style={{ fontSize: 12, color: 'var(--success)' }}>Veículo selecionado: {selectedVehicle.plate}</div>}
+
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Placa *</label>
+              <input value={form.plate} onChange={e => setForm(f => ({ ...f, plate: e.target.value.toUpperCase() }))} maxLength={8} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Plano *</label>
+              <select value={form.pricing_plan_id} onChange={e => setForm(f => ({ ...f, pricing_plan_id: e.target.value }))}>
+                <option value="">Selecionar plano...</option>
+                {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Nome do Cliente</label>
+              <input value={form.owner_name} onChange={e => setForm(f => ({ ...f, owner_name: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Telefone</label>
+              <input value={form.owner_phone} onChange={e => setForm(f => ({ ...f, owner_phone: e.target.value }))} />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Tipo de Veículo</label>
+            <select value={form.vehicle_type} onChange={e => setForm(f => ({ ...f, vehicle_type: e.target.value }))}>
+              <option value="car">🚗 Carro</option>
+              <option value="motorcycle">🏍️ Moto</option>
+              <option value="truck">🚛 Caminhão</option>
+              <option value="van">🚐 Van</option>
+            </select>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={handleSubmit} disabled={saving}>
+            {saving ? <div className="loader" style={{ width: 14, height: 14, borderWidth: 2 }} /> : 'Registrar Entrada'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -81,6 +210,7 @@ export default function SpotsPage() {
   const [spots, setSpots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSpot, setSelectedSpot] = useState(null);
+  const [entrySpot, setEntrySpot] = useState(null);
   const [floorFilter, setFloorFilter] = useState('all');
 
   const load = async () => {
@@ -162,13 +292,14 @@ export default function SpotsPage() {
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(76px,1fr))', gap:8 }}>
               {(byFloor[floor]||[]).map(spot => (
-                <SpotCard key={spot.id} spot={spot} onClick={setSelectedSpot}/>
+                <SpotCard key={spot.id} spot={spot} onClick={(clickedSpot) => clickedSpot.status === 'available' ? setEntrySpot(clickedSpot) : setSelectedSpot(clickedSpot)} />
               ))}
             </div>
           </div>
         ))
       )}
       {selectedSpot && <SpotDetail spot={selectedSpot} onClose={()=>setSelectedSpot(null)}/>}
+      {entrySpot && <SpotEntryModal spot={entrySpot} onClose={() => setEntrySpot(null)} onSuccess={() => { setEntrySpot(null); load(); }} />}
     </div>
   );
 }
