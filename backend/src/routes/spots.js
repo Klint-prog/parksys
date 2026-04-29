@@ -12,9 +12,9 @@ router.get('/', async (req, res) => {
     let params = [];
     let idx = 1;
 
-    if (floor) { where.push(`floor = $${idx++}`); params.push(floor); }
-    if (status) { where.push(`status = $${idx++}`); params.push(status); }
-    if (type) { where.push(`spot_type = $${idx++}`); params.push(type); }
+    if (floor) { where.push(`ps.floor = $${idx++}`); params.push(floor); }
+    if (status) { where.push(`ps.status = $${idx++}`); params.push(status); }
+    if (type) { where.push(`ps.spot_type = $${idx++}`); params.push(type); }
 
     const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
 
@@ -36,16 +36,16 @@ router.get('/', async (req, res) => {
 router.get('/available', async (req, res) => {
   try {
     const { floor } = req.query;
-    let where = "WHERE status = 'available'";
+    let where = "WHERE ps.status = 'available'";
     let params = [];
 
     if (floor) {
-      where += ' AND floor = $1';
+      where += ' AND ps.floor = $1';
       params.push(floor);
     }
 
     const result = await query(
-      `SELECT * FROM parking_spots ${where} ORDER BY floor, spot_number`,
+      `SELECT ps.* FROM parking_spots ps ${where} ORDER BY ps.floor, ps.spot_number`,
       params
     );
     res.json({ spots: result.rows });

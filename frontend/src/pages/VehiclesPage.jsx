@@ -116,7 +116,7 @@ function VehicleDetail({ plate, onClose }) {
     api.get(`/vehicles/${plate}`).then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false));
   }, [plate]);
   useEffect(() => {
-    api.get('/pricing-plans').then(r => setPlans(r.data || [])).catch(() => {});
+    api.get('/plans').then(r => setPlans(r.data.plans || [])).catch(() => {});
     api.get('/parking-spots', { params: { status: 'available', limit: 100 } }).then(r => setSpots(r.data?.spots || [])).catch(() => {});
   }, []);
 

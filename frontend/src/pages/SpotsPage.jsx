@@ -14,6 +14,8 @@ const SPOT_COLORS = {
 
 const TYPE_ICONS = { disabled:<Accessibility size={12}/>, electric:<Zap size={12}/>, vip:'⭐', standard:<Car size={12}/>, reserved:'🔒' };
 
+const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
+
 function SpotCard({ spot, onClick }) {
   const colors = SPOT_COLORS[spot.status] || SPOT_COLORS.available;
   const elapsed = spot.entry_time ? Math.floor((Date.now() - new Date(spot.entry_time)) / 60000) : 0;
@@ -53,9 +55,21 @@ function SpotEntryModal({ spot, onClose, onSuccess }) {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [form, setForm] = useState({ plate: '', owner_name: '', owner_phone: '', vehicle_type: 'car', pricing_plan_id: '', notes: '' });
   const [saving, setSaving] = useState(false);
+  const [plansLoading, setPlansLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/pricing-plans').then(r => setPlans(r.data || [])).catch(() => {});
+    const loadPlans = async () => {
+      try {
+        const res = await api.get('/plans');
+        setPlans(res.data?.plans || []);
+      } catch {
+        setPlans([]);
+      } finally {
+        setPlansLoading(false);
+      }
+    };
+
+    loadPlans();
   }, []);
 
   useEffect(() => {
@@ -81,6 +95,16 @@ function SpotEntryModal({ spot, onClose, onSuccess }) {
       vehicle_type: v.vehicle_type || 'car',
     }));
   };
+
+
+
+  const visiblePlans = plans.filter((p) => p.vehicle_type === form.vehicle_type || p.vehicle_type === 'all');
+
+  useEffect(() => {
+    if (form.pricing_plan_id && !visiblePlans.some((p) => String(p.id) === String(form.pricing_plan_id))) {
+      setForm((f) => ({ ...f, pricing_plan_id: '' }));
+    }
+  }, [form.pricing_plan_id, visiblePlans]);
 
   const handleSubmit = async () => {
     if (!form.plate || !form.pricing_plan_id) return toast.error('Informe placa e plano');
@@ -137,9 +161,45 @@ function SpotEntryModal({ spot, onClose, onSuccess }) {
               <label className="form-label">Plano *</label>
               <select value={form.pricing_plan_id} onChange={e => setForm(f => ({ ...f, pricing_plan_id: e.target.value }))}>
                 <option value="">Selecionar plano...</option>
-                {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {visiblePlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Planos disponíveis para entrada</label>
+            {plansLoading ? (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Carregando planos...</div>
+            ) : visiblePlans.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--danger)' }}>Nenhum plano ativo para este tipo de veículo.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: 8 }}>
+                {visiblePlans.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => setForm((f) => ({ ...f, pricing_plan_id: String(p.id) }))}
+                    style={{
+                      justifyContent: 'space-between',
+                      border: form.pricing_plan_id === String(p.id) ? '1px solid var(--primary-light)' : '1px solid var(--border)',
+                      background: form.pricing_plan_id === String(p.id) ? 'rgba(99,102,241,0.08)' : 'transparent',
+                      padding: '10px 12px'
+                    }}
+                  >
+                    <span style={{ textAlign: 'left' }}>
+                      <strong style={{ display: 'block' }}>{p.name}</strong>
+                      {p.description && <small style={{ color: 'var(--text-muted)' }}>{p.description}</small>}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      {p.plan_type === 'monthly'
+                        ? `Mensal: ${formatCurrency(p.monthly_price)}`
+                        : `Hora: ${formatCurrency(p.price_per_hour)}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid-2">
