@@ -60,7 +60,7 @@ function SpotEntryModal({ spot, onClose, onSuccess }) {
   useEffect(() => {
     const loadPlans = async () => {
       try {
-        const res = await api.get('/plans');
+        const res = await api.get('/pricing-plans');
         setPlans(res.data?.plans || []);
       } catch {
         setPlans([]);
