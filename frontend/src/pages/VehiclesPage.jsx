@@ -107,10 +107,40 @@ function VehicleModal({ vehicle, onClose, onSave }) {
 function VehicleDetail({ plate, onClose }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [plans, setPlans] = useState([]);
+  const [spots, setSpots] = useState([]);
+  const [entryForm, setEntryForm] = useState({ pricing_plan_id: '', spot_id: '' });
+  const [entryLoading, setEntryLoading] = useState(false);
 
   useEffect(() => {
     api.get(`/vehicles/${plate}`).then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false));
   }, [plate]);
+  useEffect(() => {
+    api.get('/pricing-plans').then(r => setPlans(r.data || [])).catch(() => {});
+    api.get('/parking-spots', { params: { status: 'available', limit: 100 } }).then(r => setSpots(r.data?.spots || [])).catch(() => {});
+  }, []);
+
+  const handleRecurringEntry = async () => {
+    if (!entryForm.pricing_plan_id || !entryForm.spot_id) return toast.error('Selecione plano e vaga');
+    if (!data?.vehicle?.plate) return;
+    setEntryLoading(true);
+    try {
+      await api.post('/sessions/entry', {
+        plate: data.vehicle.plate,
+        spot_id: entryForm.spot_id,
+        pricing_plan_id: entryForm.pricing_plan_id,
+        owner_name: data.vehicle.owner_name,
+        owner_phone: data.vehicle.owner_phone,
+        vehicle_type: data.vehicle.vehicle_type,
+        notes: 'Entrada recorrente'
+      });
+      toast.success('Entrada recorrente registrada!');
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erro ao registrar entrada');
+    }
+    setEntryLoading(false);
+  };
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -155,6 +185,31 @@ function VehicleDetail({ plate, onClose }) {
                     <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18 }}>{item.value}</div>
                   </div>
                 ))}
+              </div>
+
+              {/* Recurring entry */}
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, color: 'var(--text-muted)' }}>RECORRÊNCIA DE ENTRADA</h4>
+                <div className="grid-2" style={{ marginBottom: 10 }}>
+                  <div className="form-group">
+                    <label className="form-label">Plano *</label>
+                    <select value={entryForm.pricing_plan_id} onChange={e => setEntryForm(f => ({ ...f, pricing_plan_id: e.target.value }))}>
+                      <option value="">Selecionar plano...</option>
+                      {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Vaga *</label>
+                    <select value={entryForm.spot_id} onChange={e => setEntryForm(f => ({ ...f, spot_id: e.target.value }))}>
+                      <option value="">Selecionar vaga...</option>
+                      {spots.map(s => <option key={s.id} value={s.id}>{s.floor}{s.spot_number} — {s.spot_type}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <button className="btn btn-primary" onClick={handleRecurringEntry} disabled={entryLoading}>
+                  {entryLoading ? <div className="loader" style={{ width: 14, height: 14, borderWidth: 2 }} /> : <Clock size={14} />}
+                  Registrar Entrada Recorrente
+                </button>
               </div>
 
               {/* Session history */}
