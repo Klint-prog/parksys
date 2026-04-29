@@ -37,7 +37,7 @@ vehiclesRouter.post('/', async (req, res) => {
   try {
     const { plate, brand, model, color, vehicle_type, owner_name, owner_phone, owner_email } = req.body;
     const result = await query(
-      'INSERT INTO vehicles (plate,brand,model,color,vehicle_type,owner_name,owner_phone,owner_email) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (plate) DO UPDATE SET brand=EXCLUDED.brand,model=EXCLUDED.model,color=EXCLUDED.color,owner_name=EXCLUDED.owner_name,owner_phone=EXCLUDED.owner_phone,owner_email=EXCLUDED.owner_email RETURNING *',
+      'INSERT INTO vehicles (plate,brand,model,color,vehicle_type,owner_name,owner_phone,owner_email) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (plate) DO UPDATE SET brand=EXCLUDED.brand,model=EXCLUDED.model,color=EXCLUDED.color,vehicle_type=EXCLUDED.vehicle_type,owner_name=EXCLUDED.owner_name,owner_phone=EXCLUDED.owner_phone,owner_email=EXCLUDED.owner_email RETURNING *',
       [plate?.toUpperCase(), brand, model, color, vehicle_type || 'car', owner_name, owner_phone, owner_email]
     );
     res.status(201).json({ vehicle: result.rows[0] });
